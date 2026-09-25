@@ -185,16 +185,40 @@ export class CarPhysics {
       }
     }
 
-    // 9. COLLISION REFLECTION WITH ROAD RAILS
+    // 9. COLLISION REFLECTION WITH BUILDINGS & OBSTACLES
     if (colliders && colliders.length > 0) {
+      const carRadius = 1.8;
       for (const col of colliders) {
-        const d = this.position.distanceTo(col.pos);
-        if (d < col.radius) {
-          // Soft collision bounce
-          const push = col.normal.clone().multiplyScalar((col.radius - d) * 1.2);
-          this.position.add(push);
-          this.speed *= 0.88; // slight speed scrub
-          break;
+        if (col.isBox) {
+          const minX = col.x - col.hw - carRadius;
+          const maxX = col.x + col.hw + carRadius;
+          const minZ = col.z - col.hd - carRadius;
+          const maxZ = col.z + col.hd + carRadius;
+
+          if (this.position.x > minX && this.position.x < maxX &&
+              this.position.z > minZ && this.position.z < maxZ) {
+            const dLeft = this.position.x - minX;
+            const dRight = maxX - this.position.x;
+            const dBack = this.position.z - minZ;
+            const dFront = maxZ - this.position.z;
+
+            const minOverlap = Math.min(dLeft, dRight, dBack, dFront);
+            if (minOverlap === dLeft) this.position.x = minX;
+            else if (minOverlap === dRight) this.position.x = maxX;
+            else if (minOverlap === dBack) this.position.z = minZ;
+            else this.position.z = maxZ;
+
+            this.speed *= 0.82; // gentle speed bounce
+            break;
+          }
+        } else if (col.pos) {
+          const d = this.position.distanceTo(col.pos);
+          if (d < col.radius) {
+            const push = col.normal.clone().multiplyScalar((col.radius - d) * 1.2);
+            this.position.add(push);
+            this.speed *= 0.88;
+            break;
+          }
         }
       }
     }

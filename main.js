@@ -702,47 +702,80 @@ class CyberVelocityGame {
     this.hudGForce.textContent = `${this.physics.gForce} G`;
   }
 
-  // Mini Radar Canvas Renderer
+  // Mini Radar Canvas Renderer for Open-World City
   renderRadar() {
     const ctx = this.radarCtx;
     const w = this.radarCanvas.width;
     const h = this.radarCanvas.height;
     const cx = w / 2;
     const cy = h / 2;
-    const scale = 0.08; // scale world coords to radar
+    const scale = 0.12; // Scale open city coords to radar
 
     ctx.clearRect(0, 0, w, h);
 
-    // Draw Track Path
-    ctx.strokeStyle = 'rgba(0, 243, 255, 0.4)';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-
     const carPos = this.physics.position;
-    const waypoints = this.cityBuilder.trackWaypoints;
+    const cosHeading = Math.cos(-this.physics.rotation);
+    const sinHeading = Math.sin(-this.physics.rotation);
 
-    if (waypoints && waypoints.length > 0) {
-      waypoints.forEach((wp, idx) => {
-        const relX = (wp.x - carPos.x) * scale;
-        const relZ = (wp.z - carPos.z) * scale;
-        // Rotate radar relative to car heading
-        const radX = cx + (relX * Math.cos(-this.physics.rotation) - relZ * Math.sin(-this.physics.rotation));
-        const radY = cy + (relX * Math.sin(-this.physics.rotation) + relZ * Math.cos(-this.physics.rotation));
-
-        if (idx === 0) ctx.moveTo(radX, radY);
-        else ctx.lineTo(radX, radY);
-      });
-      ctx.closePath();
+    // 1. Draw Plaza Rings on Radar
+    ctx.strokeStyle = 'rgba(0, 243, 255, 0.25)';
+    ctx.lineWidth = 1;
+    [30, 70, 120].forEach(r => {
+      const relX = (0 - carPos.x) * scale;
+      const relZ = (0 - carPos.z) * scale;
+      const rx = cx + (relX * cosHeading - relZ * sinHeading);
+      const ry = cy + (relX * sinHeading + relZ * cosHeading);
+      ctx.beginPath();
+      ctx.arc(rx, ry, r * scale, 0, Math.PI * 2);
       ctx.stroke();
+    });
+
+    // 2. Draw Colorful City Building Blocks
+    const buildings = this.cityBuilder.buildingFootprints;
+    if (buildings && buildings.length > 0) {
+      for (const b of buildings) {
+        const relX = (b.x - carPos.x) * scale;
+        const relZ = (b.z - carPos.z) * scale;
+
+        // Skip buildings far outside radar range
+        if (Math.hypot(relX, relZ) > 85) continue;
+
+        const radX = cx + (relX * cosHeading - relZ * sinHeading);
+        const radY = cy + (relX * sinHeading + relZ * cosHeading);
+
+        const bw = b.w * scale;
+        const bd = b.d * scale;
+
+        ctx.fillStyle = `#${b.color.toString(16).padStart(6, '0')}77`;
+        ctx.fillRect(radX - bw / 2, radY - bd / 2, bw, bd);
+      }
     }
 
-    // Draw Player Blip (always in center, pointing up)
+    // 3. Draw Boost Pads on Radar
+    const pads = this.cityBuilder.boostPads;
+    if (pads && pads.length > 0) {
+      ctx.fillStyle = '#ffe600';
+      for (const p of pads) {
+        const relX = (p.position.x - carPos.x) * scale;
+        const relZ = (p.position.z - carPos.z) * scale;
+        if (Math.hypot(relX, relZ) > 85) continue;
+
+        const px = cx + (relX * cosHeading - relZ * sinHeading);
+        const py = cy + (relX * sinHeading + relZ * cosHeading);
+        ctx.beginPath();
+        ctx.arc(px, py, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // 4. Draw Player Blip (Always in center pointing forward)
     ctx.fillStyle = '#ff0055';
     ctx.shadowColor = '#ff0055';
-    ctx.shadowBlur = 6;
+    ctx.shadowBlur = 8;
     ctx.beginPath();
     ctx.arc(cx, cy, 4, 0, Math.PI * 2);
     ctx.fill();
+    ctx.shadowBlur = 0;
     ctx.shadowBlur = 0;
 
     // Player direction pointer
