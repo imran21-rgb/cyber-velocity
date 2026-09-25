@@ -46,7 +46,7 @@ export class CarPhysics {
     this.specs = { ...this.specs, ...physicsSpecs };
   }
 
-  update(delta, input, colliders, boostPads) {
+  update(delta, input, colliders, boostPads, roadQuery) {
     if (delta > 0.1) delta = 0.1; // prevent physics tunneling on lag spikes
 
     // 1. INPUT PROCESSING
@@ -160,8 +160,8 @@ export class CarPhysics {
       this.position.copy(nextPos);
     }
 
-    // 7. VERTICAL ELEVATION & JUMP PHYSICS
-    const groundLevel = 0.4;
+    // 7. VERTICAL ELEVATION & ROAD SURFACE COLLISION
+    const groundLevel = roadQuery ? roadQuery(this.position.x, this.position.z) : 0.4;
     if (this.isAirborne) {
       this.vy -= 28.0 * delta; // Gravity
       this.position.y += this.vy * delta;
@@ -176,7 +176,17 @@ export class CarPhysics {
         this.isAirborne = false;
       }
     } else {
-      this.position.y = groundLevel;
+      // Road surface collision response
+      if (this.position.y < groundLevel) {
+        this.position.y = groundLevel;
+        this.vy = 0;
+      } else if (this.position.y > groundLevel + 0.6) {
+        // Airborne when flying off an elevated section
+        this.isAirborne = true;
+      } else {
+        this.position.y += (groundLevel - this.position.y) * Math.min(1.0, 22 * delta);
+      }
+
       // Pitch/roll react to steering and acceleration
       this.pitch = -(throttle - brake) * 0.04;
       this.roll = this.steeringAngle * 1.5;
@@ -362,7 +372,18 @@ export class CarPhysics {
         }
       }
 
-      // 4. Fallback radial colliders
+      // 4. Jump Ramp Trigger
+      else if (col.type === 'ramp') {
+        const dx = nextPos.x - col.pos.x;
+        const dz = nextPos.z - col.pos.z;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+        if (dist < (col.radius || 8.0) && !this.isAirborne && this.speed > 15) {
+          this.launchJump(col.launchVelocity || 16);
+          audioEngine.playBoostPadSound();
+        }
+      }
+
+      // 5. Fallback radial colliders
       else if (col.pos && col.radius) {
         const d = nextPos.distanceTo(col.pos);
         if (d < col.radius + carRadius) {

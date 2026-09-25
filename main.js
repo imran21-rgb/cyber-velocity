@@ -540,8 +540,14 @@ class CyberVelocityGame {
     const time = this.clock.getElapsedTime();
 
     if (this.isDriving) {
-      // 1. Update Physics
-      this.physics.update(delta, this.input, this.cityBuilder.colliders, this.cityBuilder.boostPads);
+      // 1. Update Physics with Continuous Collision and Dynamic Road Surface Elevation
+      this.physics.update(
+        delta,
+        this.input,
+        this.cityBuilder.colliders,
+        this.cityBuilder.boostPads,
+        (x, z) => this.cityBuilder.getRoadHeight(x, z)
+      );
 
       // 2. Update Car Mesh Transform
       const carMesh = this.currentCarObject.mesh;

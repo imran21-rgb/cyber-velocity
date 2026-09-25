@@ -8,6 +8,7 @@ export class CityBuilder {
     this.colliders = [];
     this.animatedBillboards = [];
     this.trackWaypoints = [];
+    this.roadSegments = [];
     this.rainParticles = null;
   }
 
@@ -88,6 +89,7 @@ export class CityBuilder {
     const numPoints = 250;
     const points = this.trackCurve.getSpacedPoints(numPoints);
     const roadWidth = 24;
+    this.roadSegments = [];
 
     for (let i = 0; i < points.length; i++) {
       const p1 = points[i];
@@ -109,6 +111,17 @@ export class CityBuilder {
       segMesh.lookAt(p2);
       segMesh.receiveShadow = true;
       root.add(segMesh);
+
+      // Store road segment for elevation / ground surface collision
+      this.roadSegments.push({
+        p1: p1.clone(),
+        p2: p2.clone(),
+        center: center.clone(),
+        side: side.clone(),
+        forward: forward.clone(),
+        length: segLength,
+        roadWidth: roadWidth
+      });
 
       // Compute rail positions for both sides
       const leftPos = center.clone().add(side.clone().multiplyScalar(-roadWidth / 2));
@@ -303,6 +316,15 @@ export class CityBuilder {
     ramp.lookAt(pos.clone().add(forward));
     ramp.rotation.x -= 0.15; // incline
     root.add(ramp);
+
+    // Register ramp launch collider
+    this.colliders.push({
+      type: 'ramp',
+      pos: pos.clone(),
+      forward: forward.clone(),
+      radius: 8.0,
+      launchVelocity: 16.0
+    });
   }
 
   // Cyberpunk Monolith Skyscrapers
@@ -473,5 +495,52 @@ export class CityBuilder {
     } else {
       this.rainParticles.material.opacity = 0.0;
     }
+  }
+
+  // Real-time Road Surface Elevation & Ground Height Query
+  getRoadHeight(x, z) {
+    if (!this.roadSegments || this.roadSegments.length === 0) return 0.4;
+
+    let closestDistSq = Infinity;
+    let closestY = 0.4;
+    let onRoad = false;
+    const maxReachSq = 144; // (roadWidth / 2)^2 = 12^2 = 144
+
+    for (let i = 0; i < this.roadSegments.length; i++) {
+      const seg = this.roadSegments[i];
+      const p1 = seg.p1;
+      const p2 = seg.p2;
+
+      // Fast bounding box reject
+      const minX = Math.min(p1.x, p2.x) - 14;
+      const maxX = Math.max(p1.x, p2.x) + 14;
+      const minZ = Math.min(p1.z, p2.z) - 14;
+      const maxZ = Math.max(p1.z, p2.z) + 14;
+      if (x < minX || x > maxX || z < minZ || z > maxZ) continue;
+
+      const wx = p2.x - p1.x;
+      const wz = p2.z - p1.z;
+      const lenSq = wx * wx + wz * wz;
+      if (lenSq < 0.0001) continue;
+
+      const t = Math.max(0, Math.min(1, ((x - p1.x) * wx + (z - p1.z) * wz) / lenSq));
+      const projX = p1.x + t * wx;
+      const projZ = p1.z + t * wz;
+
+      const dx = x - projX;
+      const dz = z - projZ;
+      const distSq = dx * dx + dz * dz;
+
+      if (distSq < closestDistSq) {
+        closestDistSq = distSq;
+        // Top surface of the road is at p1.y + t*(p2.y - p1.y) + 0.4 (vehicle center is 0.4 above road deck)
+        closestY = (p1.y + t * (p2.y - p1.y)) + 0.4;
+        if (distSq <= maxReachSq) {
+          onRoad = true;
+        }
+      }
+    }
+
+    return onRoad ? closestY : 0.4;
   }
 }
