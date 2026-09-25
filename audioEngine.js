@@ -229,6 +229,27 @@ class AudioEngine {
     } catch(e) {}
   }
 
+  playCollisionImpact(intensity = 1.0) {
+    if (!this.initialized || this.isMuted) return;
+    try {
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(160, now);
+      osc.frequency.exponentialRampToValueAtTime(25, now + 0.22);
+
+      const vol = Math.min(0.8, 0.25 + intensity * 0.4);
+      gain.gain.setValueAtTime(vol, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+      osc.start(now);
+      osc.stop(now + 0.22);
+    } catch(e) {}
+  }
+
   // Procedural Synthwave Arpeggio loop (80s Cyberpunk pulse)
   startCyberMusic() {
     if (this.musicPlaying) return;

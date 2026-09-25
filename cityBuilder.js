@@ -110,25 +110,55 @@ export class CityBuilder {
       segMesh.receiveShadow = true;
       root.add(segMesh);
 
+      // Compute rail positions for both sides
+      const leftPos = center.clone().add(side.clone().multiplyScalar(-roadWidth / 2));
+      const rightPos = center.clone().add(side.clone().multiplyScalar(roadWidth / 2));
+      leftPos.y += 0.4;
+      rightPos.y += 0.4;
+
       // Glowing Neon Barrier Rails
       [-roadWidth / 2, roadWidth / 2].forEach((offset, idx) => {
         const railMat = (i % 40 < 20) ? neonRailMatCyan : neonRailMatPink;
         const railGeo = new THREE.BoxGeometry(0.5, 1.2, segLength * 1.02);
         const rail = new THREE.Mesh(railGeo, railMat);
-        const rPos = center.clone().add(side.clone().multiplyScalar(offset));
-        rPos.y += 0.4;
+        const rPos = idx === 0 ? leftPos : rightPos;
         rail.position.copy(rPos);
         rail.lookAt(p2.clone().add(side.clone().multiplyScalar(offset)));
         root.add(rail);
+      });
 
-        // Track collider line
-        if (i % 3 === 0) {
-          this.colliders.push({
-            pos: rPos,
-            radius: 3.0,
-            normal: side.clone().multiplyScalar(idx === 0 ? 1 : -1)
-          });
-        }
+      // Calculate next segment vertices to form unbroken 3D boundary segments
+      const nextCenter = new THREE.Vector3().addVectors(p2, points[(i + 2) % points.length]).multiplyScalar(0.5);
+      const nextForward = new THREE.Vector3().subVectors(points[(i + 2) % points.length], p2).normalize();
+      const nextSide = new THREE.Vector3().crossVectors(nextForward, up).normalize();
+      const nextLeft = nextCenter.clone().add(nextSide.clone().multiplyScalar(-roadWidth / 2));
+      const nextRight = nextCenter.clone().add(nextSide.clone().multiplyScalar(roadWidth / 2));
+      nextLeft.y += 0.4;
+      nextRight.y += 0.4;
+
+      // Inward-facing normal for Left Barrier: points toward track center (+side)
+      const leftSegNormal = side.clone().normalize();
+      // Inward-facing normal for Right Barrier: points toward track center (-side)
+      const rightSegNormal = side.clone().negate().normalize();
+
+      // Continuous Left Rail Segment Collider
+      this.colliders.push({
+        type: 'segment',
+        p1: leftPos,
+        p2: nextLeft,
+        normal: leftSegNormal,
+        radius: 0.8,
+        length: leftPos.distanceTo(nextLeft)
+      });
+
+      // Continuous Right Rail Segment Collider
+      this.colliders.push({
+        type: 'segment',
+        p1: rightPos,
+        p2: nextRight,
+        normal: rightSegNormal,
+        radius: 0.8,
+        length: rightPos.distanceTo(nextRight)
       });
 
       // Luminous Center Lane Dash Markers
@@ -179,6 +209,15 @@ export class CityBuilder {
       const p = new THREE.Mesh(pGeo, mat);
       p.position.set(x, 0, 0);
       archGroup.add(p);
+
+      // Compute world position of pillar for continuous obstacle collision
+      const worldPillarPos = pos.clone().add(side.clone().multiplyScalar(x));
+      this.colliders.push({
+        type: 'cylinder',
+        pos: worldPillarPos,
+        radius: 1.2,
+        height: 9.0
+      });
     });
 
     // Top Beam
@@ -292,6 +331,15 @@ export class CityBuilder {
       const tower = new THREE.Mesh(towerGeo, towerMat);
       tower.position.set(x, height / 2, z);
       root.add(tower);
+
+      // Register procedural skyscraper bounding box collider
+      this.colliders.push({
+        type: 'box',
+        min: new THREE.Vector3(x - width / 2, 0, z - depth / 2),
+        max: new THREE.Vector3(x + width / 2, height, z + depth / 2),
+        pos: new THREE.Vector3(x, 0, z),
+        radius: Math.sqrt(width * width + depth * depth) * 0.5
+      });
 
       // Glowing rooftop beacon / antenna
       const beaconColor = towerColors[i % towerColors.length];

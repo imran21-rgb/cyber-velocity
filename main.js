@@ -32,10 +32,14 @@ class CyberVelocityGame {
       nitro: false
     };
 
+    this.screenShake = 0;
+    this.rivals = [];
+
     this.initDOM();
     this.initThree();
     this.initCar();
     this.initEnvironment();
+    this.initRivals();
     this.initParticles();
     this.setupEventListeners();
     this.renderCarDock();
@@ -165,6 +169,69 @@ class CyberVelocityGame {
   initEnvironment() {
     this.cityBuilder = new CityBuilder(this.scene);
     this.cityGroup = this.cityBuilder.buildEnvironment(this.currentWeather);
+  }
+
+  initRivals() {
+    this.rivals = [];
+    const rivalIndices = [1, 2, 4, 6]; // Lambo, Ferrari, Tesla, Koenigsegg
+    const startProgress = [0.15, 0.40, 0.65, 0.88];
+    const laneOffsets = [-4.5, 4.5, -2.5, 3.5];
+    const speeds = [92, 108, 98, 115]; // units/s
+
+    rivalIndices.forEach((carIdx, i) => {
+      const data = CARS_DATA[carIdx];
+      const rivalObj = this.carBuilder.buildCar(data, data.defaultPaint, data.defaultUnderglow);
+      this.scene.add(rivalObj.mesh);
+
+      // Register rival collider dynamically in cityBuilder.colliders
+      const col = {
+        type: 'cylinder',
+        pos: new THREE.Vector3(),
+        radius: 1.6,
+        height: 2.0
+      };
+      this.cityBuilder.colliders.push(col);
+
+      this.rivals.push({
+        carObj: rivalObj,
+        progress: startProgress[i],
+        laneOffset: laneOffsets[i],
+        speed: speeds[i],
+        collider: col
+      });
+    });
+  }
+
+  updateRivals(delta) {
+    if (!this.cityBuilder.trackCurve || this.rivals.length === 0) return;
+
+    // Approximate total track loop length
+    const totalTrackLength = 4500;
+
+    this.rivals.forEach(rival => {
+      rival.progress = (rival.progress + (rival.speed * delta) / totalTrackLength) % 1.0;
+
+      const pt = this.cityBuilder.trackCurve.getPointAt(rival.progress);
+      const tangent = this.cityBuilder.trackCurve.getTangentAt(rival.progress).normalize();
+      const up = new THREE.Vector3(0, 1, 0);
+      const side = new THREE.Vector3().crossVectors(tangent, up).normalize();
+
+      const worldPos = pt.clone().add(side.multiplyScalar(rival.laneOffset));
+      worldPos.y = Math.max(0.4, pt.y + 0.4);
+
+      rival.carObj.mesh.position.copy(worldPos);
+
+      const lookTarget = worldPos.clone().add(tangent);
+      rival.carObj.mesh.lookAt(lookTarget);
+
+      const wheelRoll = (rival.speed * delta) / 0.4;
+      rival.carObj.wheels.forEach(w => {
+        w.group.children[0].rotation.x += wheelRoll;
+      });
+
+      // Update dynamic obstacle collider position
+      rival.collider.pos.copy(worldPos);
+    });
   }
 
   initParticles() {
@@ -500,6 +567,15 @@ class CyberVelocityGame {
         jet.material.opacity = jetScale > 0.1 ? 0.85 : 0.0;
       });
 
+      // Screen shake trigger on impact
+      if (this.physics.justCollided) {
+        this.screenShake = Math.max(this.screenShake, (this.physics.impactIntensity || 0.6) * 0.9);
+        this.physics.justCollided = false;
+      }
+
+      // Update Autonomous Rival Racers
+      this.updateRivals(delta);
+
       // 5. Camera Position Tracking
       this.updateDriveCamera(delta);
 
@@ -588,6 +664,14 @@ class CyberVelocityGame {
       this.camera.lookAt(lookTarget);
       this.camera.fov = 55;
       this.camera.updateProjectionMatrix();
+    }
+
+    // Apply trauma screen shake on impact
+    if (this.screenShake > 0.001) {
+      this.camera.position.x += (Math.random() - 0.5) * this.screenShake;
+      this.camera.position.y += (Math.random() - 0.5) * this.screenShake;
+      this.camera.position.z += (Math.random() - 0.5) * this.screenShake;
+      this.screenShake *= Math.pow(0.02, delta);
     }
   }
 
