@@ -29,7 +29,26 @@ export const CARS_DATA = [
     paints: ['#0033ff', '#00f3ff', '#111111', '#ffffff', '#ff0055', '#ffe600'],
     defaultUnderglow: '#00f3ff',
     underglows: ['#00f3ff', '#ff0055', '#00ff66', '#9d00ff', '#ffe600'],
-    accentColor: '#00f3ff'
+    accentColor: '#00f3ff',
+    soundProfile: {
+      name: 'W16 Quad-Turbo Titan',
+      subWave: 'sawtooth',
+      midWave: 'square',
+      highWave: 'sine',
+      baseFreq: 35,
+      rpmFreqMultiplier: 170,
+      midHarmonic: 1.8,
+      turboHarmonic: 7.2,
+      filterCutoffBase: 380,
+      filterCutoffRpm: 2400,
+      filterQ: 2.2,
+      volume: 1.05,
+      subGain: 0.8,
+      midGain: 0.45,
+      highGain: 0.35,
+      gearShiftPitch: 180,
+      desc: 'Deep monolithic low-end W16 rumble with pressurized quad-turbo jet spool'
+    }
   },
   {
     id: 'lamborghini',
@@ -60,7 +79,26 @@ export const CARS_DATA = [
     paints: ['#ff8800', '#ffe600', '#111111', '#00ff66', '#ff0033', '#4400cc'],
     defaultUnderglow: '#ffaa00',
     underglows: ['#ffaa00', '#ffe600', '#ff0055', '#00f3ff', '#00ff66'],
-    accentColor: '#ffaa00'
+    accentColor: '#ffaa00',
+    soundProfile: {
+      name: 'Screaming Cyber-V12 Howl',
+      subWave: 'sawtooth',
+      midWave: 'sawtooth',
+      highWave: 'sawtooth',
+      baseFreq: 58,
+      rpmFreqMultiplier: 270,
+      midHarmonic: 2.5,
+      turboHarmonic: 4.2,
+      filterCutoffBase: 800,
+      filterCutoffRpm: 4400,
+      filterQ: 4.8,
+      volume: 0.95,
+      subGain: 0.6,
+      midGain: 0.7,
+      highGain: 0.55,
+      gearShiftPitch: 320,
+      desc: 'Fierce, razor-sharp high-RPM mechanical V12 scream with raspy overtones'
+    }
   },
   {
     id: 'ferrari',
@@ -91,7 +129,26 @@ export const CARS_DATA = [
     paints: ['#e60000', '#111111', '#ffe600', '#ffffff', '#0033aa', '#333333'],
     defaultUnderglow: '#ff0033',
     underglows: ['#ff0033', '#ffe600', '#ffffff', '#00f3ff', '#9d00ff'],
-    accentColor: '#ff0033'
+    accentColor: '#ff0033',
+    soundProfile: {
+      name: 'Maranello Photonic F1 Shriek',
+      subWave: 'triangle',
+      midWave: 'sawtooth',
+      highWave: 'sine',
+      baseFreq: 66,
+      rpmFreqMultiplier: 310,
+      midHarmonic: 3.0,
+      turboHarmonic: 5.5,
+      filterCutoffBase: 950,
+      filterCutoffRpm: 5200,
+      filterQ: 3.9,
+      volume: 0.92,
+      subGain: 0.45,
+      midGain: 0.8,
+      highGain: 0.6,
+      gearShiftPitch: 380,
+      desc: 'Pristine, singing high-frequency F1 shrieker with harmonic KERS resonance'
+    }
   },
   {
     id: 'porsche',
@@ -122,7 +179,26 @@ export const CARS_DATA = [
     paints: ['#a0aab5', '#ffffff', '#111111', '#00e5ff', '#ff3300', '#00bb44'],
     defaultUnderglow: '#00ff66',
     underglows: ['#00ff66', '#00f3ff', '#ffffff', '#ffaa00', '#9d00ff'],
-    accentColor: '#00ff66'
+    accentColor: '#00ff66',
+    soundProfile: {
+      name: 'Stuttgart Precision Dual-Flux',
+      subWave: 'sawtooth',
+      midWave: 'triangle',
+      highWave: 'sine',
+      baseFreq: 46,
+      rpmFreqMultiplier: 200,
+      midHarmonic: 2.0,
+      turboHarmonic: 8.8,
+      filterCutoffBase: 580,
+      filterCutoffRpm: 3300,
+      filterQ: 2.8,
+      volume: 0.96,
+      subGain: 0.65,
+      midGain: 0.55,
+      highGain: 0.65,
+      gearShiftPitch: 240,
+      desc: 'Precision boxer-frequency rhythm paired with high-voltage 900V stator turbine whine'
+    }
   },
   {
     id: 'tesla',
@@ -153,7 +229,27 @@ export const CARS_DATA = [
     paints: ['#778899', '#151515', '#ffffff', '#cc0000', '#00ccff', '#ffaa00'],
     defaultUnderglow: '#00f3ff',
     underglows: ['#00f3ff', '#ff0033', '#ffffff', '#9d00ff', '#ffe600'],
-    accentColor: '#00f3ff'
+    accentColor: '#00f3ff',
+    soundProfile: {
+      name: 'Neural-Flux Warp & Cold-Gas Thruster',
+      subWave: 'sine',
+      midWave: 'sine',
+      highWave: 'triangle',
+      baseFreq: 52,
+      rpmFreqMultiplier: 360,
+      midHarmonic: 3.8,
+      turboHarmonic: 11.0,
+      filterCutoffBase: 1100,
+      filterCutoffRpm: 6000,
+      filterQ: 1.8,
+      volume: 0.88,
+      subGain: 0.5,
+      midGain: 0.85,
+      highGain: 0.9,
+      gearShiftPitch: 450,
+      isElectric: true,
+      desc: 'Zero combustion: pure electromagnetic sci-fi warp induction sweep & cold-gas thruster hiss'
+    }
   },
   {
     id: 'mclaren',
@@ -184,7 +280,26 @@ export const CARS_DATA = [
     paints: ['#ff5500', '#00d0ff', '#111111', '#ffffff', '#330088', '#00ff88'],
     defaultUnderglow: '#ff6600',
     underglows: ['#ff6600', '#00f3ff', '#9d00ff', '#00ff66', '#ffffff'],
-    accentColor: '#ff5500'
+    accentColor: '#ff5500',
+    soundProfile: {
+      name: 'Apex Flat-Plane Racing Bark',
+      subWave: 'sawtooth',
+      midWave: 'square',
+      highWave: 'sawtooth',
+      baseFreq: 50,
+      rpmFreqMultiplier: 245,
+      midHarmonic: 2.2,
+      turboHarmonic: 4.8,
+      filterCutoffBase: 700,
+      filterCutoffRpm: 4100,
+      filterQ: 3.4,
+      volume: 1.0,
+      subGain: 0.6,
+      midGain: 0.65,
+      highGain: 0.6,
+      gearShiftPitch: 290,
+      desc: 'High-rev dry metallic racing V8 bark with instant crisp throttle attack'
+    }
   },
   {
     id: 'koenigsegg',
@@ -215,7 +330,26 @@ export const CARS_DATA = [
     paints: ['#222225', '#ffffff', '#ffaa00', '#ff0044', '#00e5ff', '#3300aa'],
     defaultUnderglow: '#ffaa00',
     underglows: ['#ffaa00', '#00f3ff', '#ff0055', '#00ff66', '#ffffff'],
-    accentColor: '#ffaa00'
+    accentColor: '#ffaa00',
+    soundProfile: {
+      name: 'Twin-Turbo Plasma Thunder',
+      subWave: 'sawtooth',
+      midWave: 'sawtooth',
+      highWave: 'sine',
+      baseFreq: 39,
+      rpmFreqMultiplier: 220,
+      midHarmonic: 1.9,
+      turboHarmonic: 6.9,
+      filterCutoffBase: 480,
+      filterCutoffRpm: 3400,
+      filterQ: 4.4,
+      volume: 1.1,
+      subGain: 0.85,
+      midGain: 0.6,
+      highGain: 0.5,
+      gearShiftPitch: 195,
+      desc: 'Heavy guttural explosive twin-turbo power with massive wastegate resonance'
+    }
   },
   {
     id: 'astonmartin',
@@ -246,6 +380,25 @@ export const CARS_DATA = [
     paints: ['#004d40', '#00a86b', '#111111', '#ffffff', '#ffaa00', '#0099ff'],
     defaultUnderglow: '#00ffaa',
     underglows: ['#00ffaa', '#00f3ff', '#ffe600', '#ff0055', '#9d00ff'],
-    accentColor: '#00ffaa'
+    accentColor: '#00ffaa',
+    soundProfile: {
+      name: '11,100 RPM Banshee Symphony',
+      subWave: 'sawtooth',
+      midWave: 'triangle',
+      highWave: 'sawtooth',
+      baseFreq: 64,
+      rpmFreqMultiplier: 295,
+      midHarmonic: 2.8,
+      turboHarmonic: 4.1,
+      filterCutoffBase: 850,
+      filterCutoffRpm: 4900,
+      filterQ: 4.9,
+      volume: 0.98,
+      subGain: 0.5,
+      midGain: 0.75,
+      highGain: 0.65,
+      gearShiftPitch: 350,
+      desc: 'Spine-tingling 11,100 RPM Cosworth atmospheric banshee wail with KERS overtone'
+    }
   }
 ];

@@ -8,7 +8,7 @@ import { audioEngine } from './audioEngine.js';
 class CyberVelocityGame {
   constructor() {
     this.currentCarIndex = 0;
-    this.currentWeather = 'neon-night';
+    this.currentWeather = 'cyber-day';
     this.cameraMode = 'chase'; // 'chase', 'hood', 'far', 'orbit'
     this.cameraModes = ['chase', 'hood', 'far'];
     this.currentCameraIdx = 0;
@@ -32,14 +32,10 @@ class CyberVelocityGame {
       nitro: false
     };
 
-    this.screenShake = 0;
-    this.rivals = [];
-
     this.initDOM();
     this.initThree();
     this.initCar();
     this.initEnvironment();
-    this.initRivals();
     this.initParticles();
     this.setupEventListeners();
     this.renderCarDock();
@@ -78,10 +74,10 @@ class CyberVelocityGame {
   }
 
   initThree() {
-    // 1. Scene
+    // 1. Scene: Bright Sci-Fi Azure Daylight Metropolis
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x050814);
-    this.scene.fog = new THREE.FogExp2(0x050814, 0.0018);
+    this.scene.background = new THREE.Color(0x70bcf2);
+    this.scene.fog = new THREE.FogExp2(0x70bcf2, 0.00065);
 
     // 2. Camera
     this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 3500);
@@ -94,35 +90,35 @@ class CyberVelocityGame {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.3;
+    this.renderer.toneMappingExposure = 1.25;
     this.container.appendChild(this.renderer.domElement);
 
-    // 4. Lighting
-    this.ambientLight = new THREE.AmbientLight(0x1a243d, 1.8);
+    // 4. Lighting: Crisp Daytime Sunlight & Sky Fill
+    this.ambientLight = new THREE.AmbientLight(0xa6d8fc, 2.4);
     this.scene.add(this.ambientLight);
 
-    this.dirLight = new THREE.DirectionalLight(0x00f3ff, 2.5);
-    this.dirLight.position.set(150, 300, 150);
+    this.dirLight = new THREE.DirectionalLight(0xffffff, 3.4);
+    this.dirLight.position.set(250, 420, 250);
     this.dirLight.castShadow = true;
     this.dirLight.shadow.mapSize.width = 2048;
     this.dirLight.shadow.mapSize.height = 2048;
     this.dirLight.shadow.camera.near = 10;
-    this.dirLight.shadow.camera.far = 1000;
-    const d = 150;
+    this.dirLight.shadow.camera.far = 1200;
+    const d = 160;
     this.dirLight.shadow.camera.left = -d;
     this.dirLight.shadow.camera.right = d;
     this.dirLight.shadow.camera.top = d;
     this.dirLight.shadow.camera.bottom = -d;
     this.scene.add(this.dirLight);
 
-    // Accent directional light (Synth magenta)
-    this.accentLight = new THREE.DirectionalLight(0xff0055, 1.5);
-    this.accentLight.position.set(-150, 150, -150);
+    // Accent directional fill (Daytime sky bounce)
+    this.accentLight = new THREE.DirectionalLight(0x72c4f8, 1.6);
+    this.accentLight.position.set(-200, 180, -200);
     this.scene.add(this.accentLight);
 
     // Showroom spotlight
-    this.showroomSpot = new THREE.SpotLight(0xffffff, 8, 30, Math.PI / 4, 0.3);
-    this.showroomSpot.position.set(0, 8, 0);
+    this.showroomSpot = new THREE.SpotLight(0xffffff, 6, 35, Math.PI / 4, 0.35);
+    this.showroomSpot.position.set(0, 9, 0);
     this.showroomSpot.target.position.set(0, 0, 0);
     this.scene.add(this.showroomSpot);
     this.scene.add(this.showroomSpot.target);
@@ -153,6 +149,7 @@ class CyberVelocityGame {
 
     this.currentCarObject = this.carBuilder.buildCar(carData, paint, underglow);
     this.physics.setCarSpecs(carData.physics);
+    audioEngine.setCarProfile(carData.soundProfile);
 
     this.scene.add(this.currentCarObject.mesh);
 
@@ -169,69 +166,6 @@ class CyberVelocityGame {
   initEnvironment() {
     this.cityBuilder = new CityBuilder(this.scene);
     this.cityGroup = this.cityBuilder.buildEnvironment(this.currentWeather);
-  }
-
-  initRivals() {
-    this.rivals = [];
-    const rivalIndices = [1, 2, 4, 6]; // Lambo, Ferrari, Tesla, Koenigsegg
-    const startProgress = [0.15, 0.40, 0.65, 0.88];
-    const laneOffsets = [-4.5, 4.5, -2.5, 3.5];
-    const speeds = [92, 108, 98, 115]; // units/s
-
-    rivalIndices.forEach((carIdx, i) => {
-      const data = CARS_DATA[carIdx];
-      const rivalObj = this.carBuilder.buildCar(data, data.defaultPaint, data.defaultUnderglow);
-      this.scene.add(rivalObj.mesh);
-
-      // Register rival collider dynamically in cityBuilder.colliders
-      const col = {
-        type: 'cylinder',
-        pos: new THREE.Vector3(),
-        radius: 1.6,
-        height: 2.0
-      };
-      this.cityBuilder.colliders.push(col);
-
-      this.rivals.push({
-        carObj: rivalObj,
-        progress: startProgress[i],
-        laneOffset: laneOffsets[i],
-        speed: speeds[i],
-        collider: col
-      });
-    });
-  }
-
-  updateRivals(delta) {
-    if (!this.cityBuilder.trackCurve || this.rivals.length === 0) return;
-
-    // Approximate total track loop length
-    const totalTrackLength = 4500;
-
-    this.rivals.forEach(rival => {
-      rival.progress = (rival.progress + (rival.speed * delta) / totalTrackLength) % 1.0;
-
-      const pt = this.cityBuilder.trackCurve.getPointAt(rival.progress);
-      const tangent = this.cityBuilder.trackCurve.getTangentAt(rival.progress).normalize();
-      const up = new THREE.Vector3(0, 1, 0);
-      const side = new THREE.Vector3().crossVectors(tangent, up).normalize();
-
-      const worldPos = pt.clone().add(side.multiplyScalar(rival.laneOffset));
-      worldPos.y = Math.max(0.4, pt.y + 0.4);
-
-      rival.carObj.mesh.position.copy(worldPos);
-
-      const lookTarget = worldPos.clone().add(tangent);
-      rival.carObj.mesh.lookAt(lookTarget);
-
-      const wheelRoll = (rival.speed * delta) / 0.4;
-      rival.carObj.wheels.forEach(w => {
-        w.group.children[0].rotation.x += wheelRoll;
-      });
-
-      // Update dynamic obstacle collider position
-      rival.collider.pos.copy(worldPos);
-    });
   }
 
   initParticles() {
@@ -416,6 +350,12 @@ class CyberVelocityGame {
     document.getElementById('spec-nitro').style.width = `${car.specs.nitro}%`;
     document.getElementById('spec-nitro-val').textContent = car.specs.nitroVal;
 
+    const soundBadge = document.getElementById('garage-car-sound');
+    if (soundBadge && car.soundProfile) {
+      soundBadge.innerHTML = `<span>🔊 SOUND: ${car.soundProfile.name}</span>`;
+      soundBadge.title = car.soundProfile.desc;
+    }
+
     // Render Paint Color Chips
     const paintContainer = document.getElementById('paint-colors');
     paintContainer.innerHTML = '';
@@ -463,23 +403,43 @@ class CyberVelocityGame {
     this.currentWeather = weather;
     this.cityBuilder.setWeather(weather);
 
-    if (weather === 'cyber-rain') {
+    if (weather === 'cyber-day') {
+      this.scene.fog.color.set(0x70bcf2);
+      this.scene.fog.density = 0.00065;
+      this.scene.background.set(0x70bcf2);
+      this.ambientLight.color.set(0xa6d8fc);
+      this.ambientLight.intensity = 2.4;
+      this.dirLight.color.set(0xffffff);
+      this.dirLight.intensity = 3.4;
+      this.dirLight.position.set(250, 420, 250);
+      this.accentLight.color.set(0x72c4f8);
+      this.accentLight.intensity = 1.6;
+    } else if (weather === 'cyber-rain') {
       this.scene.fog.color.set(0x020510);
+      this.scene.fog.density = 0.0018;
       this.scene.background.set(0x020510);
       this.ambientLight.color.set(0x0a1428);
+      this.ambientLight.intensity = 1.4;
       this.dirLight.color.set(0x00d4ff);
+      this.dirLight.intensity = 2.0;
     } else if (weather === 'synth-sunset') {
       this.scene.fog.color.set(0x1a0628);
+      this.scene.fog.density = 0.0016;
       this.scene.background.set(0x1a0628);
       this.ambientLight.color.set(0x350d4f);
+      this.ambientLight.intensity = 1.6;
       this.dirLight.color.set(0xff5500);
+      this.dirLight.intensity = 2.6;
       this.accentLight.color.set(0xff0088);
     } else {
       // Neon night
       this.scene.fog.color.set(0x050814);
+      this.scene.fog.density = 0.0018;
       this.scene.background.set(0x050814);
       this.ambientLight.color.set(0x1a243d);
+      this.ambientLight.intensity = 1.8;
       this.dirLight.color.set(0x00f3ff);
+      this.dirLight.intensity = 2.5;
       this.accentLight.color.set(0xff0055);
     }
   }
@@ -540,14 +500,8 @@ class CyberVelocityGame {
     const time = this.clock.getElapsedTime();
 
     if (this.isDriving) {
-      // 1. Update Physics with Continuous Collision and Dynamic Road Surface Elevation
-      this.physics.update(
-        delta,
-        this.input,
-        this.cityBuilder.colliders,
-        this.cityBuilder.boostPads,
-        (x, z) => this.cityBuilder.getRoadHeight(x, z)
-      );
+      // 1. Update Physics
+      this.physics.update(delta, this.input, this.cityBuilder.colliders, this.cityBuilder.boostPads);
 
       // 2. Update Car Mesh Transform
       const carMesh = this.currentCarObject.mesh;
@@ -572,15 +526,6 @@ class CyberVelocityGame {
         jet.scale.set(jetScale, jetScale * 1.5, jetScale);
         jet.material.opacity = jetScale > 0.1 ? 0.85 : 0.0;
       });
-
-      // Screen shake trigger on impact
-      if (this.physics.justCollided) {
-        this.screenShake = Math.max(this.screenShake, (this.physics.impactIntensity || 0.6) * 0.9);
-        this.physics.justCollided = false;
-      }
-
-      // Update Autonomous Rival Racers
-      this.updateRivals(delta);
 
       // 5. Camera Position Tracking
       this.updateDriveCamera(delta);
@@ -670,14 +615,6 @@ class CyberVelocityGame {
       this.camera.lookAt(lookTarget);
       this.camera.fov = 55;
       this.camera.updateProjectionMatrix();
-    }
-
-    // Apply trauma screen shake on impact
-    if (this.screenShake > 0.001) {
-      this.camera.position.x += (Math.random() - 0.5) * this.screenShake;
-      this.camera.position.y += (Math.random() - 0.5) * this.screenShake;
-      this.camera.position.z += (Math.random() - 0.5) * this.screenShake;
-      this.screenShake *= Math.pow(0.02, delta);
     }
   }
 

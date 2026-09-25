@@ -1,4 +1,4 @@
-// Web Audio API Procedural Sound Synthesizer for Hypercar Engine, Nitro, Drifting, and Cyber Synthwave
+// Web Audio API Procedural Sound Synthesizer with Custom Acoustic Profiles for Every Car
 class AudioEngine {
   constructor() {
     this.ctx = null;
@@ -7,10 +7,21 @@ class AudioEngine {
 
     // Engine sound nodes
     this.engineGain = null;
-    this.engineSub = null;
-    this.engineMid = null;
-    this.engineHigh = null;
     this.engineFilter = null;
+
+    // Oscillators and individual gain controls for 3 harmonic layers
+    this.engineSub = null;
+    this.subGainNode = null;
+
+    this.engineMid = null;
+    this.midGainNode = null;
+
+    this.engineHigh = null;
+    this.highGainNode = null;
+
+    // Electric stator / thruster noise layer for EV/hybrid cars (e.g. Tesla / SpaceX)
+    this.thrusterNoiseGain = null;
+    this.thrusterNoiseFilter = null;
 
     // Nitro sound nodes
     this.nitroGain = null;
@@ -25,6 +36,27 @@ class AudioEngine {
     this.musicGain = null;
     this.synthTimer = null;
     this.musicPlaying = false;
+
+    // Active car profile defaults
+    this.activeProfile = {
+      name: 'Standard Hypercar',
+      subWave: 'sawtooth',
+      midWave: 'triangle',
+      highWave: 'sine',
+      baseFreq: 45,
+      rpmFreqMultiplier: 200,
+      midHarmonic: 2.2,
+      turboHarmonic: 6.0,
+      filterCutoffBase: 500,
+      filterCutoffRpm: 3200,
+      filterQ: 3.0,
+      volume: 1.0,
+      subGain: 0.7,
+      midGain: 0.5,
+      highGain: 0.4,
+      gearShiftPitch: 260,
+      isElectric: false
+    };
   }
 
   init() {
@@ -47,32 +79,55 @@ class AudioEngine {
     this.engineFilter = this.ctx.createBiquadFilter();
     this.engineFilter.type = 'lowpass';
     this.engineFilter.frequency.setValueAtTime(800, this.ctx.currentTime);
-    this.engineFilter.Q.setValueAtTime(3.0, this.ctx.currentTime);
+    this.engineFilter.Q.setValueAtTime(this.activeProfile.filterQ, this.ctx.currentTime);
 
-    // Sub rumble oscillator
+    // Sub Layer
     this.engineSub = this.ctx.createOscillator();
-    this.engineSub.type = 'sawtooth';
-    this.engineSub.frequency.setValueAtTime(55, this.ctx.currentTime);
+    this.engineSub.type = this.activeProfile.subWave;
+    this.subGainNode = this.ctx.createGain();
+    this.subGainNode.gain.setValueAtTime(this.activeProfile.subGain, this.ctx.currentTime);
+    this.engineSub.connect(this.subGainNode);
+    this.subGainNode.connect(this.engineFilter);
 
-    // Mid harmonic oscillator
+    // Mid Harmonic Layer
     this.engineMid = this.ctx.createOscillator();
-    this.engineMid.type = 'triangle';
-    this.engineMid.frequency.setValueAtTime(110, this.ctx.currentTime);
+    this.engineMid.type = this.activeProfile.midWave;
+    this.midGainNode = this.ctx.createGain();
+    this.midGainNode.gain.setValueAtTime(this.activeProfile.midGain, this.ctx.currentTime);
+    this.engineMid.connect(this.midGainNode);
+    this.midGainNode.connect(this.engineFilter);
 
-    // Turbine electric hyper-whine (FM-like)
+    // High Turbo / Stator Whine Layer
     this.engineHigh = this.ctx.createOscillator();
-    this.engineHigh.type = 'sine';
-    this.engineHigh.frequency.setValueAtTime(220, this.ctx.currentTime);
+    this.engineHigh.type = this.activeProfile.highWave;
+    this.highGainNode = this.ctx.createGain();
+    this.highGainNode.gain.setValueAtTime(this.activeProfile.highGain, this.ctx.currentTime);
+    this.engineHigh.connect(this.highGainNode);
+    this.highGainNode.connect(this.engineFilter);
 
-    this.engineSub.connect(this.engineFilter);
-    this.engineMid.connect(this.engineFilter);
-    this.engineHigh.connect(this.engineFilter);
+    // Filter to Engine Master Gain
     this.engineFilter.connect(this.engineGain);
     this.engineGain.connect(this.masterGain);
 
     this.engineSub.start();
     this.engineMid.start();
     this.engineHigh.start();
+
+    // Electric / SpaceX Cold-Gas Thruster Hiss Layer
+    this.thrusterNoiseGain = this.ctx.createGain();
+    this.thrusterNoiseGain.gain.setValueAtTime(0.0, this.ctx.currentTime);
+    this.thrusterNoiseFilter = this.ctx.createBiquadFilter();
+    this.thrusterNoiseFilter.type = 'highpass';
+    this.thrusterNoiseFilter.frequency.setValueAtTime(2500, this.ctx.currentTime);
+
+    const thrusterBuffer = this.createNoiseBuffer(2.0);
+    const thrusterNoise = this.ctx.createBufferSource();
+    thrusterNoise.buffer = thrusterBuffer;
+    thrusterNoise.loop = true;
+    thrusterNoise.connect(this.thrusterNoiseFilter);
+    this.thrusterNoiseFilter.connect(this.thrusterNoiseGain);
+    this.thrusterNoiseGain.connect(this.masterGain);
+    thrusterNoise.start();
 
     // ================= 2. NITRO BOOST SYNTHESIZER =================
     this.nitroGain = this.ctx.createGain();
@@ -112,12 +167,33 @@ class AudioEngine {
 
     // ================= 4. AMBIENT CYBERPUNK MUSIC SYNTH =================
     this.musicGain = this.ctx.createGain();
-    this.musicGain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+    this.musicGain.gain.setValueAtTime(0.2, this.ctx.currentTime);
     this.musicGain.connect(this.masterGain);
 
     this.startCyberMusic();
 
     this.initialized = true;
+  }
+
+  // Switch sound timbre and waveform dynamics to match the active hypercar
+  setCarProfile(soundProfile) {
+    if (!soundProfile) return;
+    this.activeProfile = { ...this.activeProfile, ...soundProfile };
+
+    if (!this.initialized || !this.ctx) return;
+    const now = this.ctx.currentTime;
+
+    try {
+      this.engineSub.type = this.activeProfile.subWave;
+      this.engineMid.type = this.activeProfile.midWave;
+      this.engineHigh.type = this.activeProfile.highWave;
+
+      this.subGainNode.gain.setTargetAtTime(this.activeProfile.subGain, now, 0.05);
+      this.midGainNode.gain.setTargetAtTime(this.activeProfile.midGain, now, 0.05);
+      this.highGainNode.gain.setTargetAtTime(this.activeProfile.highGain, now, 0.05);
+
+      this.engineFilter.Q.setTargetAtTime(this.activeProfile.filterQ, now, 0.05);
+    } catch(e) {}
   }
 
   createNoiseBuffer(seconds) {
@@ -133,24 +209,39 @@ class AudioEngine {
   updateEngine(rpmRatio, throttle, speedRatio) {
     if (!this.initialized || this.isMuted) return;
 
-    // RPM scales from 0.0 to 1.0
+    const p = this.activeProfile;
     const now = this.ctx.currentTime;
-    const baseFreq = 45 + rpmRatio * 180 + speedRatio * 80;
+
+    // Base pitch calculated from car profile
+    const baseFreq = p.baseFreq + (rpmRatio * p.rpmFreqMultiplier) + (speedRatio * 60);
 
     // Sub pitch
-    this.engineSub.frequency.setTargetAtTime(baseFreq, now, 0.05);
-    // Mid harmonic
-    this.engineMid.frequency.setTargetAtTime(baseFreq * 2.2, now, 0.05);
-    // Turbine whine
-    this.engineHigh.frequency.setTargetAtTime(baseFreq * 4.5 + throttle * 400, now, 0.05);
+    this.engineSub.frequency.setTargetAtTime(baseFreq, now, 0.04);
 
-    // Filter frequency opens up with throttle
-    const filterCutoff = 400 + rpmRatio * 2800 + (throttle ? 1200 : 0);
-    this.engineFilter.frequency.setTargetAtTime(filterCutoff, now, 0.06);
+    // Mid harmonic layer
+    this.engineMid.frequency.setTargetAtTime(baseFreq * p.midHarmonic, now, 0.04);
 
-    // Volume level
-    const targetVolume = 0.15 + throttle * 0.35 + speedRatio * 0.15;
-    this.engineGain.gain.setTargetAtTime(targetVolume, now, 0.05);
+    // High turbine / turbo spool or stator whine
+    const turboWhineFreq = (baseFreq * p.turboHarmonic) + (throttle * 350);
+    this.engineHigh.frequency.setTargetAtTime(turboWhineFreq, now, 0.04);
+
+    // Dynamic filter opens as revs and throttle increase
+    const filterCutoff = p.filterCutoffBase + (rpmRatio * p.filterCutoffRpm) + (throttle ? 1400 : 0);
+    this.engineFilter.frequency.setTargetAtTime(filterCutoff, now, 0.05);
+
+    // Volume level scaled by car volume profile
+    const targetVolume = (0.16 + throttle * 0.38 + speedRatio * 0.16) * (p.volume || 1.0);
+    this.engineGain.gain.setTargetAtTime(targetVolume, now, 0.04);
+
+    // Electric / Cold-Gas Thruster hiss (active on Tesla or hyper-hybrid full throttle)
+    if (this.thrusterNoiseGain) {
+      if (p.isElectric && throttle) {
+        this.thrusterNoiseGain.gain.setTargetAtTime(0.18 + speedRatio * 0.15, now, 0.06);
+        this.thrusterNoiseFilter.frequency.setTargetAtTime(2000 + speedRatio * 4000, now, 0.05);
+      } else {
+        this.thrusterNoiseGain.gain.setTargetAtTime(0.0, now, 0.1);
+      }
+    }
   }
 
   setNitro(active) {
@@ -179,14 +270,19 @@ class AudioEngine {
   playGearShift() {
     if (!this.initialized || this.isMuted) return;
     try {
+      const p = this.activeProfile;
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
-      osc.type = 'sawtooth';
+      osc.type = p.subWave === 'sine' ? 'sine' : 'sawtooth';
       const now = this.ctx.currentTime;
-      osc.frequency.setValueAtTime(320, now);
-      osc.frequency.exponentialRampToValueAtTime(80, now + 0.12);
-      gain.gain.setValueAtTime(0.25, now);
+      const shiftFreq = p.gearShiftPitch || 280;
+
+      osc.frequency.setValueAtTime(shiftFreq, now);
+      osc.frequency.exponentialRampToValueAtTime(shiftFreq * 0.25, now + 0.12);
+
+      gain.gain.setValueAtTime(0.24, now);
       gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
       osc.connect(gain);
       gain.connect(this.masterGain);
       osc.start(now);
@@ -201,8 +297,8 @@ class AudioEngine {
       const gain = this.ctx.createGain();
       osc.type = 'sine';
       const now = this.ctx.currentTime;
-      osc.frequency.setValueAtTime(200, now);
-      osc.frequency.exponentialRampToValueAtTime(900, now + 0.3);
+      osc.frequency.setValueAtTime(220, now);
+      osc.frequency.exponentialRampToValueAtTime(950, now + 0.3);
       gain.gain.setValueAtTime(0.4, now);
       gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
       osc.connect(gain);
@@ -229,33 +325,11 @@ class AudioEngine {
     } catch(e) {}
   }
 
-  playCollisionImpact(intensity = 1.0) {
-    if (!this.initialized || this.isMuted) return;
-    try {
-      const now = this.ctx.currentTime;
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(160, now);
-      osc.frequency.exponentialRampToValueAtTime(25, now + 0.22);
-
-      const vol = Math.min(0.8, 0.25 + intensity * 0.4);
-      gain.gain.setValueAtTime(vol, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
-
-      osc.connect(gain);
-      gain.connect(this.masterGain);
-      osc.start(now);
-      osc.stop(now + 0.22);
-    } catch(e) {}
-  }
-
-  // Procedural Synthwave Arpeggio loop (80s Cyberpunk pulse)
+  // Procedural Synthwave Arpeggio loop (Cyberpunk pulse)
   startCyberMusic() {
     if (this.musicPlaying) return;
     this.musicPlaying = true;
 
-    // F minor cyberpunk scale: F2, Ab2, C3, Eb3, Db3, C3, Bb2, C3
     const notes = [87.31, 103.83, 130.81, 155.56, 138.59, 130.81, 116.54, 130.81];
     let step = 0;
 
@@ -273,7 +347,7 @@ class AudioEngine {
         filt.type = 'lowpass';
         filt.frequency.setValueAtTime(600 + Math.sin(now * 0.5) * 350, now);
 
-        g.gain.setValueAtTime(0.08, now);
+        g.gain.setValueAtTime(0.07, now);
         g.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
 
         osc.connect(filt);
@@ -285,7 +359,7 @@ class AudioEngine {
 
         step++;
       }
-      this.synthTimer = setTimeout(playStep, 150); // 100 BPM 16th notes
+      this.synthTimer = setTimeout(playStep, 150);
     };
 
     playStep();

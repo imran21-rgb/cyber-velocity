@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-// Procedural Cyberpunk Metropolis, Elevated Highway System, Neon Billboards, and Boost Pads
+// Procedural Cyberpunk Metropolis with Dynamic Solar Daylight, Highway Circuit, Billboards & Boost Pads
 export class CityBuilder {
   constructor(scene) {
     this.scene = scene;
@@ -8,55 +8,90 @@ export class CityBuilder {
     this.colliders = [];
     this.animatedBillboards = [];
     this.trackWaypoints = [];
-    this.roadSegments = [];
     this.rainParticles = null;
+    this.sunGroup = null;
+    this.towers = [];
+    this.groundMesh = null;
   }
 
-  buildEnvironment(weather = 'neon-night') {
+  buildEnvironment(weather = 'cyber-day') {
     const root = new THREE.Group();
     root.name = 'city-environment';
 
-    // 1. INFINITE CYBER GRID GROUND
-    const gridHelper = new THREE.GridHelper(2500, 100, 0x00f3ff, 0x151c33);
+    // 1. SCI-FI CELESTIAL SUN & CORONA (For Daytime Metropolis)
+    this.buildDaytimeSun(root);
+
+    // 2. INFINITE CYBER GRID GROUND
+    const gridHelper = new THREE.GridHelper(3000, 120, 0x00f3ff, 0x1f3455);
     gridHelper.position.y = -0.5;
     root.add(gridHelper);
 
-    // Dark Ground Reflective Plane
-    const groundGeo = new THREE.PlaneGeometry(3000, 3000);
-    const groundMat = new THREE.MeshStandardMaterial({
-      color: 0x03060f,
-      roughness: 0.15,
-      metalness: 0.85
+    // Ground Reflective Plane
+    const groundGeo = new THREE.PlaneGeometry(3500, 3500);
+    this.groundMat = new THREE.MeshStandardMaterial({
+      color: 0x0a1424,
+      roughness: 0.18,
+      metalness: 0.82
     });
-    const ground = new THREE.Mesh(groundGeo, groundMat);
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.y = -0.6;
-    ground.receiveShadow = true;
-    root.add(ground);
+    this.groundMesh = new THREE.Mesh(groundGeo, this.groundMat);
+    this.groundMesh.rotation.x = -Math.PI / 2;
+    this.groundMesh.position.y = -0.6;
+    this.groundMesh.receiveShadow = true;
+    root.add(this.groundMesh);
 
-    // 2. HIGH-SPEED CYBER HIGHWAY CIRCUIT
+    // 3. HIGH-SPEED CYBER HIGHWAY CIRCUIT
     this.buildHighwayCircuit(root);
 
-    // 3. CYBERPUNK SKYSCRAPERS & TOWERS
+    // 4. DAYTIME METROPOLIS SKYSCRAPERS & MEGASPIRES
     this.buildSkyscrapers(root);
 
-    // 4. FLOATING HOLOGRAPHIC BILLBOARDS
+    // 5. FLOATING HOLOGRAPHIC BILLBOARDS
     this.buildHolographicBillboards(root);
 
-    // 5. CYBER RAIN PARTICLE SYSTEM (Active during cyber-rain)
+    // 6. CYBER RAIN PARTICLE SYSTEM (Active during cyber-rain)
     this.buildRainSystem(root);
 
     this.scene.add(root);
+
+    // Apply initial weather theme
+    this.setWeather(weather);
+
     return root;
+  }
+
+  // Futuristic Solar Sun & Atmospheric Flare
+  buildDaytimeSun(root) {
+    this.sunGroup = new THREE.Group();
+    this.sunGroup.position.set(280, 420, 280);
+
+    // Central Sun Sphere
+    const sunGeo = new THREE.SphereGeometry(28, 24, 24);
+    const sunMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const sunMesh = new THREE.Mesh(sunGeo, sunMat);
+    this.sunGroup.add(sunMesh);
+
+    // Glowing Corona Rings
+    const coronaGeo = new THREE.RingGeometry(30, 85, 32);
+    const coronaMat = new THREE.MeshBasicMaterial({
+      color: 0x8be5ff,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.45
+    });
+    const corona = new THREE.Mesh(coronaGeo, coronaMat);
+    corona.lookAt(0, 0, 0);
+    this.sunGroup.add(corona);
+
+    root.add(this.sunGroup);
   }
 
   // Multi-Section Circuit with Loops, Straightaways, Banking, Overpasses, and Jump Ramps
   buildHighwayCircuit(root) {
     // Road Material with emissive cyber lane markings
     const roadMat = new THREE.MeshStandardMaterial({
-      color: 0x0d111a,
-      roughness: 0.4,
-      metalness: 0.6
+      color: 0x161f30,
+      roughness: 0.35,
+      metalness: 0.65
     });
 
     const neonRailMatCyan = new THREE.MeshBasicMaterial({ color: 0x00f3ff });
@@ -89,7 +124,6 @@ export class CityBuilder {
     const numPoints = 250;
     const points = this.trackCurve.getSpacedPoints(numPoints);
     const roadWidth = 24;
-    this.roadSegments = [];
 
     for (let i = 0; i < points.length; i++) {
       const p1 = points[i];
@@ -107,79 +141,38 @@ export class CityBuilder {
       // Center segment between p1 and p2
       const center = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5);
       segMesh.position.copy(center);
-      segMesh.position.y -= 0.4; // place top surface at p1.y
+      segMesh.position.y -= 0.4;
       segMesh.lookAt(p2);
       segMesh.receiveShadow = true;
       root.add(segMesh);
 
-      // Store road segment for elevation / ground surface collision
-      this.roadSegments.push({
-        p1: p1.clone(),
-        p2: p2.clone(),
-        center: center.clone(),
-        side: side.clone(),
-        forward: forward.clone(),
-        length: segLength,
-        roadWidth: roadWidth
-      });
-
-      // Compute rail positions for both sides
-      const leftPos = center.clone().add(side.clone().multiplyScalar(-roadWidth / 2));
-      const rightPos = center.clone().add(side.clone().multiplyScalar(roadWidth / 2));
-      leftPos.y += 0.4;
-      rightPos.y += 0.4;
-
-      // Glowing Neon Barrier Rails
+      // Glowing Highway Barrier Rails
       [-roadWidth / 2, roadWidth / 2].forEach((offset, idx) => {
         const railMat = (i % 40 < 20) ? neonRailMatCyan : neonRailMatPink;
-        const railGeo = new THREE.BoxGeometry(0.5, 1.2, segLength * 1.02);
+        const railGeo = new THREE.BoxGeometry(0.55, 1.3, segLength * 1.02);
         const rail = new THREE.Mesh(railGeo, railMat);
-        const rPos = idx === 0 ? leftPos : rightPos;
+        const rPos = center.clone().add(side.clone().multiplyScalar(offset));
+        rPos.y += 0.45;
         rail.position.copy(rPos);
         rail.lookAt(p2.clone().add(side.clone().multiplyScalar(offset)));
         root.add(rail);
-      });
 
-      // Calculate next segment vertices to form unbroken 3D boundary segments
-      const nextCenter = new THREE.Vector3().addVectors(p2, points[(i + 2) % points.length]).multiplyScalar(0.5);
-      const nextForward = new THREE.Vector3().subVectors(points[(i + 2) % points.length], p2).normalize();
-      const nextSide = new THREE.Vector3().crossVectors(nextForward, up).normalize();
-      const nextLeft = nextCenter.clone().add(nextSide.clone().multiplyScalar(-roadWidth / 2));
-      const nextRight = nextCenter.clone().add(nextSide.clone().multiplyScalar(roadWidth / 2));
-      nextLeft.y += 0.4;
-      nextRight.y += 0.4;
-
-      // Inward-facing normal for Left Barrier: points toward track center (+side)
-      const leftSegNormal = side.clone().normalize();
-      // Inward-facing normal for Right Barrier: points toward track center (-side)
-      const rightSegNormal = side.clone().negate().normalize();
-
-      // Continuous Left Rail Segment Collider
-      this.colliders.push({
-        type: 'segment',
-        p1: leftPos,
-        p2: nextLeft,
-        normal: leftSegNormal,
-        radius: 0.8,
-        length: leftPos.distanceTo(nextLeft)
-      });
-
-      // Continuous Right Rail Segment Collider
-      this.colliders.push({
-        type: 'segment',
-        p1: rightPos,
-        p2: nextRight,
-        normal: rightSegNormal,
-        radius: 0.8,
-        length: rightPos.distanceTo(nextRight)
+        // Track collider line
+        if (i % 3 === 0) {
+          this.colliders.push({
+            pos: rPos,
+            radius: 3.0,
+            normal: side.clone().multiplyScalar(idx === 0 ? 1 : -1)
+          });
+        }
       });
 
       // Luminous Center Lane Dash Markers
       if (i % 2 === 0) {
-        const dashGeo = new THREE.BoxGeometry(0.4, 0.05, segLength * 0.5);
+        const dashGeo = new THREE.BoxGeometry(0.45, 0.06, segLength * 0.5);
         const dash = new THREE.Mesh(dashGeo, neonRailMatCyan);
         dash.position.copy(center);
-        dash.position.y += 0.05;
+        dash.position.y += 0.06;
         dash.lookAt(p2);
         root.add(dash);
       }
@@ -222,15 +215,6 @@ export class CityBuilder {
       const p = new THREE.Mesh(pGeo, mat);
       p.position.set(x, 0, 0);
       archGroup.add(p);
-
-      // Compute world position of pillar for continuous obstacle collision
-      const worldPillarPos = pos.clone().add(side.clone().multiplyScalar(x));
-      this.colliders.push({
-        type: 'cylinder',
-        pos: worldPillarPos,
-        radius: 1.2,
-        height: 9.0
-      });
     });
 
     // Top Beam
@@ -244,10 +228,10 @@ export class CityBuilder {
     signCanvas.width = 256;
     signCanvas.height = 64;
     const ctx = signCanvas.getContext('2d');
-    ctx.fillStyle = '#0a0e1c';
+    ctx.fillStyle = '#0f1a30';
     ctx.fillRect(0, 0, 256, 64);
     ctx.fillStyle = '#00f3ff';
-    ctx.font = 'bold 30px sans-serif';
+    ctx.font = 'bold 28px sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('SPEED ZONE // ∞', 128, 44);
 
@@ -289,7 +273,7 @@ export class CityBuilder {
     }
 
     const padTex = new THREE.CanvasTexture(padCanvas);
-    const padMat = new THREE.MeshBasicMaterial({ map: padTex, transparent: true, opacity: 0.9 });
+    const padMat = new THREE.MeshBasicMaterial({ map: padTex, transparent: true, opacity: 0.95 });
     const padMesh = new THREE.Mesh(padGeo, padMat);
     padGroup.add(padMesh);
 
@@ -314,65 +298,53 @@ export class CityBuilder {
     ramp.position.copy(pos);
     ramp.position.y += 0.5;
     ramp.lookAt(pos.clone().add(forward));
-    ramp.rotation.x -= 0.15; // incline
+    ramp.rotation.x -= 0.15;
     root.add(ramp);
-
-    // Register ramp launch collider
-    this.colliders.push({
-      type: 'ramp',
-      pos: pos.clone(),
-      forward: forward.clone(),
-      radius: 8.0,
-      launchVelocity: 16.0
-    });
   }
 
-  // Cyberpunk Monolith Skyscrapers
+  // Futuristic Metropolis Skyscraper Skyline
   buildSkyscrapers(root) {
-    const towerColors = [0x00f3ff, 0xff0055, 0x9d00ff, 0xffaa00];
+    const towerAccentColors = [0x00f3ff, 0xff0055, 0x00ff88, 0xffaa00, 0x0099ff];
 
-    const towerCount = 90;
+    // High-tech architectural palette: daytime reflective glass & titanium alloys
+    const buildingMaterials = [
+      new THREE.MeshStandardMaterial({ color: 0xdde6f0, roughness: 0.15, metalness: 0.85 }), // White Platinum
+      new THREE.MeshStandardMaterial({ color: 0x1a2e4c, roughness: 0.1, metalness: 0.9 }),  // Azure Glass
+      new THREE.MeshStandardMaterial({ color: 0x48586d, roughness: 0.2, metalness: 0.8 }),  // Titanium Grey
+      new THREE.MeshStandardMaterial({ color: 0x0e1b2e, roughness: 0.12, metalness: 0.92 })  // Deep Obsidian Glass
+    ];
+
+    const towerCount = 95;
     for (let i = 0; i < towerCount; i++) {
-      const angle = (i / towerCount) * Math.PI * 2 + Math.random() * 0.1;
-      const radius = 220 + Math.random() * 550;
+      const angle = (i / towerCount) * Math.PI * 2 + Math.random() * 0.12;
+      const radius = 220 + Math.random() * 560;
 
       const x = Math.cos(angle) * radius;
       const z = Math.sin(angle) * radius;
 
-      const width = 25 + Math.random() * 45;
-      const depth = 25 + Math.random() * 45;
-      const height = 120 + Math.random() * 320;
+      const width = 28 + Math.random() * 48;
+      const depth = 28 + Math.random() * 48;
+      const height = 130 + Math.random() * 340;
 
-      const towerMat = new THREE.MeshStandardMaterial({
-        color: 0x080c16,
-        roughness: 0.2,
-        metalness: 0.85
-      });
-
+      const mat = buildingMaterials[i % buildingMaterials.length];
       const towerGeo = new THREE.BoxGeometry(width, height, depth);
-      const tower = new THREE.Mesh(towerGeo, towerMat);
+      const tower = new THREE.Mesh(towerGeo, mat);
       tower.position.set(x, height / 2, z);
+      tower.castShadow = true;
+      tower.receiveShadow = true;
       root.add(tower);
+      this.towers.push(tower);
 
-      // Register procedural skyscraper bounding box collider
-      this.colliders.push({
-        type: 'box',
-        min: new THREE.Vector3(x - width / 2, 0, z - depth / 2),
-        max: new THREE.Vector3(x + width / 2, height, z + depth / 2),
-        pos: new THREE.Vector3(x, 0, z),
-        radius: Math.sqrt(width * width + depth * depth) * 0.5
-      });
-
-      // Glowing rooftop beacon / antenna
-      const beaconColor = towerColors[i % towerColors.length];
-      const antennaGeo = new THREE.CylinderGeometry(0.3, 0.6, 25, 6);
+      // Daytime solar spire beacon
+      const beaconColor = towerAccentColors[i % towerAccentColors.length];
+      const antennaGeo = new THREE.CylinderGeometry(0.35, 0.7, 28, 6);
       const antennaMat = new THREE.MeshBasicMaterial({ color: beaconColor });
       const antenna = new THREE.Mesh(antennaGeo, antennaMat);
-      antenna.position.set(x, height + 12.5, z);
+      antenna.position.set(x, height + 14, z);
       root.add(antenna);
 
-      // Vertical neon strip along tower edge
-      const edgeGeo = new THREE.BoxGeometry(1.0, height, 1.0);
+      // Vertical aerodynamic neon architectural fin
+      const edgeGeo = new THREE.BoxGeometry(1.2, height, 1.2);
       const edgeMesh = new THREE.Mesh(edgeGeo, antennaMat);
       edgeMesh.position.set(x + width / 2, height / 2, z + depth / 2);
       root.add(edgeMesh);
@@ -382,11 +354,11 @@ export class CityBuilder {
   // Floating Cyber Hologram Billboards
   buildHolographicBillboards(root) {
     const ads = [
-      { text: 'CYBER VELOCITY', sub: 'HYPER-DRIVE 2099', color: '#00f3ff' },
+      { text: 'CYBER VELOCITY', sub: 'HYPER-DRIVE 2099', color: '#00d4ff' },
       { text: 'ARASAKA NEURAL', sub: 'SYNAPTIC ACCELERATION', color: '#ff0055' },
-      { text: 'QUANTUM GRAVITY', sub: 'ZERO DRAG DYNAMICS', color: '#ffe600' },
-      { text: 'NEO-TOKYO GT', sub: 'CIRCUIT APEX LEAGUE', color: '#00ff66' },
-      { text: 'SPACEX PROPULSION', sub: 'COLD-GAS THRUST', color: '#9d00ff' }
+      { text: 'SOLAR DYNAMICS', sub: 'CLEAN QUANTUM POWER', color: '#ffb700' },
+      { text: 'NEO-TOKYO GT', sub: 'DAYTIME APEX LEAGUE', color: '#00ff88' },
+      { text: 'SPACEX PROPULSION', sub: 'COLD-GAS THRUST', color: '#0088ff' }
     ];
 
     const billboardPositions = [
@@ -404,8 +376,8 @@ export class CityBuilder {
       canvas.height = 256;
       const ctx = canvas.getContext('2d');
 
-      // Transparent holographic background with grid
-      ctx.fillStyle = 'rgba(6, 12, 28, 0.85)';
+      // Daytime semi-translucent glass backing
+      ctx.fillStyle = 'rgba(12, 24, 48, 0.88)';
       ctx.fillRect(0, 0, 512, 256);
 
       ctx.strokeStyle = ad.color;
@@ -425,7 +397,7 @@ export class CityBuilder {
       const bMat = new THREE.MeshBasicMaterial({
         map: tex,
         transparent: true,
-        opacity: 0.85,
+        opacity: 0.92,
         side: THREE.DoubleSide
       });
       const bGeo = new THREE.PlaneGeometry(60, 30);
@@ -460,7 +432,7 @@ export class CityBuilder {
       color: 0x00f3ff,
       size: 0.6,
       transparent: true,
-      opacity: 0.0 // hidden by default, enabled when weather is 'cyber-rain'
+      opacity: 0.0
     });
 
     this.rainParticles = new THREE.Points(rainGeo, rainMat);
@@ -468,7 +440,7 @@ export class CityBuilder {
   }
 
   update(delta, time, carPos) {
-    // Animate floating billboards gently bobbing
+    // Animate floating billboards
     this.animatedBillboards.forEach(b => {
       b.mesh.position.y = b.baseY + Math.sin(time * 1.5 + b.offset) * 2.5;
     });
@@ -489,58 +461,22 @@ export class CityBuilder {
   }
 
   setWeather(weatherType) {
-    if (!this.rainParticles) return;
-    if (weatherType === 'cyber-rain') {
-      this.rainParticles.material.opacity = 0.65;
-    } else {
-      this.rainParticles.material.opacity = 0.0;
+    if (this.sunGroup) {
+      this.sunGroup.visible = (weatherType === 'cyber-day');
     }
-  }
 
-  // Real-time Road Surface Elevation & Ground Height Query
-  getRoadHeight(x, z) {
-    if (!this.roadSegments || this.roadSegments.length === 0) return 0.4;
+    if (this.rainParticles) {
+      this.rainParticles.material.opacity = (weatherType === 'cyber-rain') ? 0.65 : 0.0;
+    }
 
-    let closestDistSq = Infinity;
-    let closestY = 0.4;
-    let onRoad = false;
-    const maxReachSq = 144; // (roadWidth / 2)^2 = 12^2 = 144
-
-    for (let i = 0; i < this.roadSegments.length; i++) {
-      const seg = this.roadSegments[i];
-      const p1 = seg.p1;
-      const p2 = seg.p2;
-
-      // Fast bounding box reject
-      const minX = Math.min(p1.x, p2.x) - 14;
-      const maxX = Math.max(p1.x, p2.x) + 14;
-      const minZ = Math.min(p1.z, p2.z) - 14;
-      const maxZ = Math.max(p1.z, p2.z) + 14;
-      if (x < minX || x > maxX || z < minZ || z > maxZ) continue;
-
-      const wx = p2.x - p1.x;
-      const wz = p2.z - p1.z;
-      const lenSq = wx * wx + wz * wz;
-      if (lenSq < 0.0001) continue;
-
-      const t = Math.max(0, Math.min(1, ((x - p1.x) * wx + (z - p1.z) * wz) / lenSq));
-      const projX = p1.x + t * wx;
-      const projZ = p1.z + t * wz;
-
-      const dx = x - projX;
-      const dz = z - projZ;
-      const distSq = dx * dx + dz * dz;
-
-      if (distSq < closestDistSq) {
-        closestDistSq = distSq;
-        // Top surface of the road is at p1.y + t*(p2.y - p1.y) + 0.4 (vehicle center is 0.4 above road deck)
-        closestY = (p1.y + t * (p2.y - p1.y)) + 0.4;
-        if (distSq <= maxReachSq) {
-          onRoad = true;
-        }
+    if (this.groundMat) {
+      if (weatherType === 'cyber-day') {
+        this.groundMat.color.set(0x0e1c30);
+        this.groundMat.roughness = 0.22;
+      } else {
+        this.groundMat.color.set(0x03060f);
+        this.groundMat.roughness = 0.15;
       }
     }
-
-    return onRoad ? closestY : 0.4;
   }
 }
